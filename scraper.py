@@ -3,44 +3,46 @@ from bs4 import BeautifulSoup
 import smtplib
 import time
 
-URL = 'https://www.amazon.in/Acer-i5-9300H-Processor-15-6-inch-AN715-51/dp/B07TD8KKDY/ref=redir_mobile_desktop?_encoding=UTF8&aaxitk=hiwh6eT5S3qTNPB-UsBRMw&hsa_cr_id=5706079120602&ref_=sb_s_sparkle_slot'
+headers = {
+    "User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0'}
 
-headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0'}
+checkPricing = 1
 
 
-def check_price():
-    page = requests.get(URL, headers=headers)
-
+def checkPrice(URL, expectedPrice, email, password, toEmail):
+    page = requests.get(url=URL, headers=headers)
+    # print(page.status_code)
     soup = BeautifulSoup(page.content, 'html.parser')
 
     title = soup.find(id="productTitle").get_text()
-    price = soup.find(id="priceblock_dealprice").get_text()
+    price = soup.find(id="priceblock_ourprice").get_text()
     price = price.replace(',', '')
-    c_price = float(price[2:7])
-    if c_price < 63000:
-        send_mail()
-    else:
-        print("Sike!")
+    cPrice = float(price[2:7])
     print(title.strip())
-    print(c_price)
+    if cPrice <= expectedPrice:
+        print("Price drop! Expected price: {0} Cost Price {1}".format(
+            expectedPrice, cPrice))
+        global checkPricing
+        checkPricing = 0
+        send_mail(URL, email, password, toEmail)
+    else:
+        print("Price currently high!")
 
 
-def send_mail():
+def send_mail(URL, email, password, toEmail):
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.ehlo()
     server.starttls()
     server.ehlo()
-
-    server.login('crahul1721@gmail.com', 'l*************f')
+    server.login(email, password)
 
     subject = 'Price fell down'
-    body = 'Check the amazon link ' \
-           'https://www.amazon.in/Acer-i5-9300H-Processor-15-6-inch-AN715-51/dp/B07TD8KKDY/ref=redir_mobile_desktop?_encoding=UTF8&aaxitk=hiwh6eT5S3qTNPB-UsBRMw&hsa_cr_id=5706079120602&ref_=sb_s_sparkle_slot'
+    body = "Check the amazon link: {0}".format(URL)
 
     msg = f"Subject: {subject}\n\n{body}"
     server.sendmail(
-        'crahul1721@gmail.com',
-        'ytpremium15@gmail.com',
+        email,
+        toEmail,
         msg
     )
 
@@ -48,6 +50,22 @@ def send_mail():
     server.quit()
 
 
-while True:
-    check_price()
-    time.sleep(60 * 60)
+# while True:
+# check_price()
+#time.sleep(60 * 60)
+
+def driverFunc():
+    URL = input("Enter URL :")
+    expectedPrice = float(input("Enter expected price: "))
+    email = input("Input user mail: ")
+    password = input(str("Input user password: (Use App password!) "))
+    toEmail = input("Recipient user mail: ")
+    while checkPricing == 1:
+        checkPrice(URL, expectedPrice, email, password, toEmail)
+        if checkPricing == 1:
+            time.sleep(60*60)  # check every hour.
+        else:
+            break
+
+
+driverFunc()
